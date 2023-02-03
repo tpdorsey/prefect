@@ -506,6 +506,23 @@ class TestOrionHandler:
         output = capsys.readouterr()
         assert output.err == ""
 
+    def test_does_not_raise_when_logger_outside_of_run_context_with_default_setting(
+        self,
+        logger,
+    ):
+        try:
+            logger.info("test")
+        except TypeError:
+            pytest.fail(
+                "Raised TypeError when logging outside of context with default 'warn' setting."
+            )
+        except UserWarning:
+            pass
+        except Exception:
+            pytest.fail(
+                "Raised unexpected exception when logging outside of context with default 'warn' setting."
+            )
+
     def test_does_not_send_logs_outside_of_run_context_with_error_setting(
         self, logger, mock_log_worker, capsys
     ):
@@ -524,6 +541,26 @@ class TestOrionHandler:
         output = capsys.readouterr()
         assert output.err == ""
 
+    def test_does_not_warn_when_logger_outside_of_run_context_with_error_setting(
+        self,
+        logger,
+    ):
+        with temporary_settings(
+            updates={PREFECT_LOGGING_ORION_WHEN_MISSING_FLOW: "error"},
+        ):
+            try:
+                logger.info("test")
+            except UserWarning:
+                pytest.fail(
+                    "Raised UserWarning when logging outside of context with 'error' setting."
+                )
+            except MissingContextError:
+                pass
+            except Exception:
+                pytest.fail(
+                    "Raised unexpected exception when logging outside of context with 'error' setting."
+                )
+
     def test_does_not_send_logs_outside_of_run_context_with_ignore_setting(
         self, logger, mock_log_worker, capsys
     ):
@@ -537,6 +574,28 @@ class TestOrionHandler:
         # No stderr output
         output = capsys.readouterr()
         assert output.err == ""
+
+    def test_does_not_raise_or_warn_when_logger_outside_of_run_context_with_ignore_setting(
+        self,
+        logger,
+    ):
+        with temporary_settings(
+            updates={PREFECT_LOGGING_ORION_WHEN_MISSING_FLOW: "ignore"},
+        ):
+            try:
+                logger.info("test")
+            except TypeError:
+                pytest.fail(
+                    "Raised TypeError when logging outside of context with 'ignore' setting."
+                )
+            except UserWarning:
+                pytest.fail(
+                    "Raised UserWarning when logging outside of context with 'ignore' setting."
+                )
+            except Exception:
+                pytest.fail(
+                    "Raised unexpected exception when logging outside of context with 'ignore' setting."
+                )
 
     def test_does_not_send_logs_outside_of_run_context_with_warn_setting(
         self, logger, mock_log_worker, capsys
@@ -555,6 +614,26 @@ class TestOrionHandler:
         # No stderr output
         output = capsys.readouterr()
         assert output.err == ""
+
+    def test_does_not_raise_when_logger_outside_of_run_context_with_warn_setting(
+        self,
+        logger,
+    ):
+        with temporary_settings(
+            updates={PREFECT_LOGGING_ORION_WHEN_MISSING_FLOW: "warn"},
+        ):
+            try:
+                logger.info("test")
+            except TypeError:
+                pytest.fail(
+                    "Raised TypeError when logging outside of context with 'warn' setting."
+                )
+            except UserWarning:
+                pass
+            except Exception:
+                pytest.fail(
+                    "Raised unexpected exception when logging outside of context with 'warn' setting."
+                )
 
     def test_missing_context_warning_refers_to_caller_lineno(
         self, logger, mock_log_worker
