@@ -11,6 +11,9 @@ tags:
 
 # API Reference
 
+!!! tip "Changing 'Orion' nomenclature"
+    With the 2.8.1 release, **we removed references to "Orion" and replaced them with more explicit, conventional nomenclature throughout the codebase**. These changes clarify the function of various components, commands, variables, and more. See the [Release Notes](https://github.com/PrefectHQ/prefect/blob/main/RELEASE-NOTES.md#release-281) for details.
+
 Prefect 2 provides a number of programmatic workflow interfaces. Each API is documented in this section. 
 
 - The Prefect Python API is used to build, test, and execute workflows against the Prefect orchestration engine. This is the primary user-facing API.
@@ -23,3 +26,6 @@ Prefect 2 provides a number of programmatic workflow interfaces. Each API is doc
     The Prefect REST API documentation for a local instance run with with `prefect server start` is available at <a href="http://localhost:4200/docs" target="_blank">http://localhost:4200/docs</a> or the `/docs` endpoint of the [`PREFECT_API_URL`](/concepts/settings/#prefect_api_url) you have configured to access the server.
 
     The Prefect REST API documentation for locally run open-source Prefect servers is also available in the [Prefect REST API Reference](/api-ref/rest-api-reference/).
+
+!!! info "Prefect Cloud API rate limits"
+    The Prefect Cloud API enforces rate limits, restricting the number of requests that a single client can make in a given time period. It ensures that, when you make an API call, you get a response. See [Prefect Cloud API Rate Limits](/ui/rate-limits/) for details.

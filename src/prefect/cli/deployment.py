@@ -241,9 +241,12 @@ async def set_schedule(
         None,
         "--interval",
         help="An interval to schedule on, specified in seconds",
+        min=0.0001,
     ),
     interval_anchor: Optional[str] = typer.Option(
-        None, "--anchor-date", help="The anchor date for an interval schedule"
+        None,
+        "--anchor-date",
+        help="The anchor date for an interval schedule",
     ),
     rrule_string: Optional[str] = typer.Option(
         None, "--rrule", help="Deployment schedule rrule string"
@@ -267,36 +270,53 @@ async def set_schedule(
     """
     assert_deployment_name_format(name)
 
-    interval_schedule = {
-        "interval": interval,
-        "interval_anchor": interval_anchor,
-        "timezone": timezone,
-    }
-    cron_schedule = {"cron": cron_string, "day_or": cron_day_or, "timezone": timezone}
-    if rrule_string is not None:
-        rrule_schedule = json.loads(rrule_string)
-        if timezone:
-            # override timezone if specified via CLI argument
-            rrule_schedule.update({"timezone": timezone})
-    else:
-        # fall back to empty schedule dictionary
-        rrule_schedule = {"rrule": None}
-
-    def updated_schedule_check(schedule):
-        return any(v is not None for k, v in schedule.items() if k != "timezone")
-
-    updated_schedules = list(
-        filter(
-            updated_schedule_check, (interval_schedule, cron_schedule, rrule_schedule)
+    if sum(option is not None for option in [interval, rrule_string, cron_string]) != 1:
+        exit_with_error(
+            "Exactly one of `--interval`, `--rrule`, or `--cron` must be provided."
         )
-    )
 
-    if len(updated_schedules) == 0:
-        exit_with_error("No deployment schedule updates provided")
-    if len(updated_schedules) > 1:
-        exit_with_error("Incompatible schedule parameters")
+    if interval_anchor and not interval:
+        exit_with_error("An anchor date can only be provided with an interval schedule")
 
-    updated_schedule = {k: v for k, v in updated_schedules[0].items() if v is not None}
+    if interval is not None:
+        if interval_anchor:
+            try:
+                pendulum.parse(interval_anchor)
+            except ValueError:
+                exit_with_error("The anchor date must be a valid date string.")
+        interval_schedule = {
+            "interval": interval,
+            "anchor_date": interval_anchor,
+            "timezone": timezone,
+        }
+        updated_schedule = IntervalSchedule(
+            **{k: v for k, v in interval_schedule.items() if v is not None}
+        )
+
+    if cron_string is not None:
+        cron_schedule = {
+            "cron": cron_string,
+            "day_or": cron_day_or,
+            "timezone": timezone,
+        }
+        updated_schedule = CronSchedule(
+            **{k: v for k, v in cron_schedule.items() if v is not None}
+        )
+
+    if rrule_string is not None:
+        # a timezone in the `rrule_string` gets ignored by the RRuleSchedule constructor
+        if "TZID" in rrule_string and not timezone:
+            exit_with_error(
+                "You can provide a timezone by providing a dict with a `timezone` key to the --rrule option. E.g. {'rrule': 'FREQ=MINUTELY;INTERVAL=5', 'timezone': 'America/New_York'}."
+                "\nAlternatively, you can provide a timezone by passing in a --timezone argument."
+            )
+        try:
+            updated_schedule = RRuleSchedule(**json.loads(rrule_string))
+            if timezone:
+                # override timezone if specified via CLI argument
+                updated_schedule.timezone = timezone
+        except json.JSONDecodeError:
+            updated_schedule = RRuleSchedule(rrule=rrule_string, timezone=timezone)
 
     async with get_client() as client:
         try:
@@ -463,7 +483,6 @@ async def run(
             warnings.filterwarnings("ignore", module="dateparser")
 
             try:
-
                 start_time_parsed = dateparser.parse(
                     start_time_raw,
                     settings={
@@ -598,7 +617,6 @@ async def apply(
     Create or update a deployment from a YAML file.
     """
     for path in paths:
-
         try:
             deployment = await Deployment.load_from_yaml(path)
             app.console.print(f"Successfully loaded {deployment.name!r}", style="green")

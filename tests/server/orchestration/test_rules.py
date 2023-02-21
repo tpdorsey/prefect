@@ -93,7 +93,6 @@ class TestOrchestrationResult:
 
 class TestBaseOrchestrationRule:
     async def test_orchestration_rules_are_context_managers(self, session, task_run):
-
         side_effect = 0
 
         class IllustrativeRule(BaseOrchestrationRule):
@@ -298,7 +297,6 @@ class TestBaseOrchestrationRule:
 
         fizzling_rule = FizzlingRule(ctx, *intended_transition)
         async with fizzling_rule as ctx:
-
             # within the context, only the before-hook has fired and we can observe the side-effect
             assert side_effect == 1
 
@@ -1435,22 +1433,22 @@ class TestOrchestrationContext:
         assert ctx.run.state.id == ctx.validated_state.id
         assert ctx.validated_state.id == ctx.proposed_state.id
 
-    async def test_context_validation_writes_result_data(
+    async def test_context_validation_writes_result_artifact(
         self, session, run_type, initialize_orchestration
     ):
         initial_state_type = states.StateType.PENDING
         proposed_state_type = states.StateType.RUNNING
         intended_transition = (initial_state_type, proposed_state_type)
         ctx = await initialize_orchestration(session, run_type, *intended_transition)
-        ctx.proposed_state.data = "some special data"
+        ctx.proposed_state.data = {"value": "some special data"}
 
         assert ctx.run.state.id != ctx.proposed_state.id
         await ctx.validate_proposed_state()
         assert ctx.run.state.id == ctx.validated_state.id
         assert ctx.validated_state.id == ctx.proposed_state.id
-        assert (
-            ctx.validated_state.data == "some special data"
-        ), "result data should be attached to the validated state"
+        assert ctx.validated_state.data == {
+            "value": "some special data"
+        }, "result data should be attached to the validated state"
 
         # an artifact should be created with the result data as well
         if run_type == "task":
@@ -1461,7 +1459,41 @@ class TestOrchestrationContext:
         artifact_id = validated_orm_state.result_artifact_id
 
         orm_artifact = await models.artifacts.read_artifact(ctx.session, artifact_id)
-        assert orm_artifact.data == "some special data"
+        assert orm_artifact.data == {"value": "some special data"}
+
+    async def test_context_validation_writes_result_artifact_with_metadata(
+        self, session, run_type, initialize_orchestration
+    ):
+        initial_state_type = states.StateType.PENDING
+        proposed_state_type = states.StateType.RUNNING
+        intended_transition = (initial_state_type, proposed_state_type)
+        ctx = await initialize_orchestration(session, run_type, *intended_transition)
+        ctx.proposed_state.data = dict(
+            value="some special data",
+            artifact_type="a special type",
+            artifact_description="it's so pretty",
+        )
+
+        assert ctx.run.state.id != ctx.proposed_state.id
+        await ctx.validate_proposed_state()
+        assert ctx.run.state.id == ctx.validated_state.id
+        assert ctx.validated_state.id == ctx.proposed_state.id
+        assert ctx.validated_state.data == {
+            "value": "some special data"
+        }, "sanitized result data should be attached to the validated state"
+
+        # an artifact should be created with the result data as well
+        if run_type == "task":
+            state_reader = models.task_run_states.read_task_run_state
+        else:
+            state_reader = models.flow_run_states.read_flow_run_state
+        validated_orm_state = await state_reader(ctx.session, ctx.validated_state.id)
+        artifact_id = validated_orm_state.result_artifact_id
+
+        orm_artifact = await models.artifacts.read_artifact(ctx.session, artifact_id)
+        assert orm_artifact.data == {"value": "some special data"}
+        assert orm_artifact.type == "a special type"
+        assert orm_artifact.metadata_["description"] == "it's so pretty"
 
     async def test_context_validation_does_not_write_artifact_when_no_result(
         self, session, run_type, initialize_orchestration
@@ -1601,7 +1633,6 @@ class TestNullRejection:
         ctx = await initialize_orchestration(session, run_type, *intended_transition)
 
         async with contextlib.AsyncExitStack() as stack:
-
             # first enter a minimal rule that fires its pre-transition hook
             minimal_rule = MinimalRule(ctx, *intended_transition)
             ctx = await stack.enter_async_context(minimal_rule)
@@ -1688,7 +1719,6 @@ class TestNullRejection:
         ctx = await initialize_orchestration(session, run_type, *intended_transition)
 
         async with contextlib.AsyncExitStack() as stack:
-
             # the null rejection rule rejects the transition
             null_rejector = NullRejectionRule(ctx, *intended_transition)
             ctx = await stack.enter_async_context(null_rejector)
