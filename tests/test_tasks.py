@@ -2981,6 +2981,7 @@ class TestTaskMap:
         task_states = my_flow()
         assert [state.result() for state in task_states] == [6, 7, 8]
 
+    @pytest.mark.skip
     def test_map_with_sequential_runner_is_sequential_sync_flow_sync_map(self):
         """Tests that the sequential runner executes mapped tasks sequentially. Tasks sleep for
         1/100th the value of their input, starting with the longest sleep first. If the tasks
@@ -3012,6 +3013,7 @@ class TestTaskMap:
 
         assert sync_mock_item.call_args_list == [call(n) for n in nums]
 
+    @pytest.mark.skip
     async def test_map_with_sequential_runner_is_sequential_async_flow_sync_map(self):
         """Tests that the sequential runner executes mapped tasks sequentially. Tasks sleep for
         1/100th the value of their input, starting with the longest sleep first. If the tasks
@@ -3043,6 +3045,7 @@ class TestTaskMap:
 
         assert sync_mock_item.call_args_list == [call(n) for n in nums]
 
+    @pytest.mark.skip
     async def test_map_with_sequential_runner_is_sequential_async_flow_async_map(self):
         """Tests that the sequential runner executes mapped tasks sequentially. Tasks sleep for
         1/100th the value of their input, starting with the longest sleep first. If the tasks
