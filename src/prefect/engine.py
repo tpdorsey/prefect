@@ -83,6 +83,7 @@ from prefect.states import (
     exception_to_crashed_state,
     exception_to_failed_state,
     get_state_exception,
+    raise_state_exception,
     return_value_to_state,
 )
 from prefect.task_runners import (
@@ -2066,6 +2067,45 @@ async def _run_flow_hooks(flow: Flow, flow_run: FlowRun, state: State) -> None:
                 )
             else:
                 logger.info(f"Hook {hook.__name__!r} finished running successfully")
+
+
+@sync_compatible
+async def checkpoint(raise_on_failure: bool = True):
+    flow_run_context = FlowRunContext.get()
+    task_run_context = TaskRunContext.get()
+
+    if not flow_run_context and not task_run_context:
+        if raise_on_failure:
+            raise RuntimeError("checkpoint must be called from within a flow or task.")
+        else:
+            return False
+
+    if flow_run_context:
+        flow_run_id = flow_run_context.flow_run.id
+        task_run_id = None
+    if task_run_context:
+        flow_run_id = task_run_context.task_run.flow_run_id
+        task_run_id = task_run_context.task_run.id
+
+    if flow_run_id:
+        flow_run = await flow_run_context.client.read_flow_run(flow_run_id)
+
+        if not flow_run.state.is_running():
+            if raise_on_failure:
+                await raise_state_exception(flow_run.state)
+            else:
+                return False
+
+    if task_run_id:
+        task_run = await task_run_context.client.read_task_run(task_run_id)
+
+        if not task_run.state.is_running():
+            if raise_on_failure:
+                await raise_state_exception(task_run.state)
+            else:
+                return False
+
+    return True
 
 
 if __name__ == "__main__":
