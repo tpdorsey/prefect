@@ -2070,7 +2070,7 @@ async def _run_flow_hooks(flow: Flow, flow_run: FlowRun, state: State) -> None:
 
 
 @sync_compatible
-async def checkpoint(raise_on_failure: bool = True) -> Optional[State]:
+async def check_if_running(raise_on_failure: bool = True) -> Optional[State]:
     """
     Check the state of the current flow or task run according to the API. If the state
     is not running, raise an exception. Otherwise, return the state.
