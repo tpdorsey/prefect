@@ -43,6 +43,10 @@ from prefect.futures import PrefectFuture
 from prefect.logging import get_logger
 from prefect.results import ResultSerializer, ResultStorage
 from prefect.server.schemas.core import Flow, FlowRun, raise_on_invalid_name
+from prefect.settings import (
+    PREFECT_FLOW_DEFAULT_RETRY_DELAY_SECONDS,
+    PREFECT_FLOWS_DEFAULT_RETRIES,
+)
 from prefect.states import State
 from prefect.task_runners import BaseTaskRunner, ConcurrentTaskRunner
 from prefect.utilities.annotations import NotSet
@@ -126,8 +130,8 @@ class Flow(Generic[P, R]):
         name: Optional[str] = None,
         version: Optional[str] = None,
         flow_run_name: Optional[str] = None,
-        retries: int = 0,
-        retry_delay_seconds: Union[int, float] = 0,
+        retries: Optional[int] = None,
+        retry_delay_seconds: Optional[Union[int, float]] = None,
         task_runner: Union[Type[BaseTaskRunner], BaseTaskRunner] = ConcurrentTaskRunner,
         description: str = None,
         timeout_seconds: Union[int, float] = None,
@@ -177,8 +181,14 @@ class Flow(Generic[P, R]):
         # FlowRunPolicy settings
         # TODO: We can instantiate a `FlowRunPolicy` and add Pydantic bound checks to
         #       validate that the user passes positive numbers here
-        self.retries = retries
-        self.retry_delay_seconds = retry_delay_seconds
+        self.retries = (
+            retries if retries is not None else PREFECT_FLOWS_DEFAULT_RETRIES.value()
+        )
+        self.retry_delay_seconds = (
+            retry_delay_seconds
+            if retry_delay_seconds is not None
+            else PREFECT_FLOW_DEFAULT_RETRY_DELAY_SECONDS.value()
+        )
 
         self.parameters = parameter_schema(self.fn)
         self.should_validate_parameters = validate_parameters
@@ -529,7 +539,7 @@ def flow(
     name: Optional[str] = None,
     version: Optional[str] = None,
     flow_run_name: Optional[str] = None,
-    retries: int = 0,
+    retries: Optional[int] = None,
     retry_delay_seconds: Union[int, float] = 0,
     task_runner: BaseTaskRunner = ConcurrentTaskRunner,
     description: str = None,
