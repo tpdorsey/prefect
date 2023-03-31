@@ -1,5 +1,5 @@
+import faulthandler
 from typing import Generator
-from unittest import mock
 
 import pendulum
 import pytest
@@ -7,6 +7,8 @@ import pytest
 from prefect.events import Event
 from prefect.events.clients import AssertingEventsClient
 from prefect.events.worker import EventsWorker
+
+faulthandler.dump_traceback_later(20)
 
 
 @pytest.fixture(autouse=True)
@@ -59,23 +61,19 @@ def example_event_5() -> Event:
     )
 
 
-@pytest.fixture(scope="module")
-def asserting_events_worker() -> Generator[EventsWorker, None, None]:
-    worker = EventsWorker(AssertingEventsClient)
-
-    # Mock `get_worker_from_run_context` so that `get_events_worker` context
-    # manager doesn't attempt to manage the lifecycle of this worker.
-    with mock.patch(
-        "prefect.events.worker.get_worker_from_run_context"
-    ) as worker_from_context:
-        worker_from_context.return_value = worker
-
-        worker.start()
+@pytest.fixture
+def asserting_events_worker(monkeypatch) -> Generator[EventsWorker, None, None]:
+    worker = EventsWorker.instance(AssertingEventsClient)
+    # Always yield the asserting worker when new instances are retrieved
+    monkeypatch.setattr(EventsWorker, "instance", lambda *_: worker)
+    try:
         yield worker
-        worker.stop()
+    finally:
+        worker.drain()
 
 
-@pytest.fixture()
+@pytest.fixture
 def reset_worker_events(asserting_events_worker: EventsWorker):
+    yield
     assert isinstance(asserting_events_worker._client, AssertingEventsClient)
     asserting_events_worker._client.events = []
